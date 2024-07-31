@@ -1,14 +1,32 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TileAddressing {
-    Unsigned,
-    Signed,
+pub enum TileData {
+    UnsignedAddress,
+    SignedAddress,
 }
 
-impl TileAddressing {
+impl TileData {
     pub fn tile_start_address(self, tile_number: u8) -> u16 {
         match self {
-            TileAddressing::Unsigned => tile_number as u16 * 16,
-            TileAddressing::Signed => (0x1000 + (((tile_number as i8) as i16) * 16)) as u16,
+            TileData::UnsignedAddress => tile_number as u16 * 16,
+            TileData::SignedAddress => (0x1000 + (((tile_number as i8) as i16) * 16)) as u16,
+        }
+    }
+}
+
+impl From<bool> for TileData {
+    fn from(value: bool) -> Self {
+        match value {
+            true => TileData::UnsignedAddress,
+            false => TileData::SignedAddress,
+        }
+    }
+}
+
+impl From<TileData> for bool {
+    fn from(value: TileData) -> Self {
+        match value {
+            TileData::UnsignedAddress => true,
+            TileData::SignedAddress => false,
         }
     }
 }
@@ -28,13 +46,31 @@ impl TileMap {
     }
 }
 
+impl From<bool> for TileMap {
+    fn from(value: bool) -> Self {
+        match value {
+            true => TileMap::High,
+            false => TileMap::Low,
+        }
+    }
+}
+
+impl From<TileMap> for bool {
+    fn from(value: TileMap) -> Self {
+        match value {
+            TileMap::High => true,
+            TileMap::Low => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::TileAddressing;
+    use super::TileData;
 
     #[test]
     fn tile_addressing_unsigned() {
-        let addressing = TileAddressing::Unsigned;
+        let addressing = TileData::UnsignedAddress;
         let expected_indices: Vec<u16> = (0..=255).map(|x| x * 16).collect();
 
         let tile_indices: Vec<u16> = (0..=255).map(|x| addressing.tile_start_address(x)).collect();
@@ -43,7 +79,7 @@ mod tests {
 
     #[test]
     fn tile_addressing_signed() {
-        let addressing = TileAddressing::Signed;
+        let addressing = TileData::SignedAddress;
         let expected_indices: Vec<u16> = (-128..=127).map(|x| (0x1000 + (x as i16 * 16)) as u16).collect();
 
         let mut tile_indices: Vec<u16> = (128..=255).map(|x| addressing.tile_start_address(x)).collect();

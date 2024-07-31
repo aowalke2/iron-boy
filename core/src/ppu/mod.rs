@@ -1,9 +1,11 @@
 use palette::Palette;
+use registers::LcdControl;
 use std::cmp::Ordering;
-use tile::{TileAddressing, TileMap};
+use tile::{TileData, TileMap};
 
 use crate::bus::Memory;
 
+mod oam;
 mod palette;
 mod registers;
 mod tile;
@@ -32,14 +34,7 @@ pub struct Ppu {
     line_ticks: u32,
     ly: u8,
     lyc: u8,
-    lcd_enabled: bool,
-    window_tile_map: TileMap,
-    window_enabled: bool,
-    tile_data: TileAddressing,
-    bg_tile_map: TileMap,
-    object_size: u8,
-    object_enabled: bool,
-    bg_window_enabled: bool,
+    lcdc: LcdControl,
     bg_window_priority: [Priority; SCREEN_WIDTH],
     lyc_interrupt: bool,
     mode0_interrupt: bool,
@@ -67,7 +62,7 @@ impl Memory for Ppu {
         match address {
             0x8000..=0x9FFF => self.vram[(self.vrambank * 0x2000) | (address as usize & 0x1FFF)],
             0xFE00..=0xFE9F => self.oam[address as usize - 0xFE00],
-            0xFF40 => self.lcdc_read(),
+            0xFF40 => self.lcdc.read(),
             0xFF41 => self.stat_read(),
             0xFF42 => self.scy,
             0xFF43 => self.scx,
@@ -89,7 +84,7 @@ impl Memory for Ppu {
         match address {
             0x8000..=0x9FFF => self.vram[(self.vrambank * 0x2000) | (address as usize & 0x1FFF)] = data,
             0xFE00..=0xFE9F => self.oam[address as usize - 0xFE00] = data,
-            0xFF40 => self.lcdc_write(data),
+            0xFF40 => self.lcdc.write(data),
             0xFF41 => self.stat_write(data),
             0xFF42 => self.scy = data,
             0xFF43 => self.scx = data,
@@ -118,14 +113,7 @@ impl Ppu {
             line_ticks: 0,
             ly: 0,
             lyc: 0,
-            lcd_enabled: false,
-            window_tile_map: TileMap::High,
-            window_enabled: false,
-            tile_data: TileAddressing::Unsigned,
-            bg_tile_map: TileMap::High,
-            object_size: 8,
-            object_enabled: false,
-            bg_window_enabled: false,
+            lcdc: LcdControl::new(0),
             lyc_interrupt: false,
             mode2_interrupt: false,
             mode1_interrupt: false,

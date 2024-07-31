@@ -1,66 +1,97 @@
+use bit::BitIndex;
+
 use super::{
-    tile::{TileAddressing, TileMap},
+    oam::OamSize,
+    tile::{TileData, TileMap},
     Mode, Ppu,
 };
 
+#[derive(Debug, Clone, Copy)]
+pub struct LcdControl {
+    data: u8,
+}
+
+impl LcdControl {
+    pub fn new(data: u8) -> Self {
+        LcdControl { data }
+    }
+
+    pub fn read(&self) -> u8 {
+        self.data
+    }
+
+    pub fn write(&mut self, data: u8) {
+        self.data = data
+    }
+
+    // not sure if i ever need to set bits individually
+    pub fn lcd_enabled(&self) -> bool {
+        self.data.bit(7)
+    }
+
+    pub fn set_lcd_enabled(&mut self, status: bool) {
+        self.data.set_bit(7, status);
+    }
+
+    pub fn window_tile_map(&self) -> TileMap {
+        self.data.bit(6).into()
+    }
+
+    pub fn set_window_tile_map(&mut self, tile_map: TileMap) {
+        self.data.set_bit(6, tile_map.into());
+    }
+
+    pub fn window_enabled(&self) -> bool {
+        self.data.bit(5)
+    }
+
+    pub fn set_window_enabled(&mut self, status: bool) {
+        self.data.set_bit(5, status);
+    }
+
+    pub fn tile_data(&self) -> TileData {
+        self.data.bit(4).into()
+    }
+
+    pub fn set_tile_data(&mut self, tile_data: TileData) {
+        self.data.set_bit(4, tile_data.into());
+    }
+
+    pub fn bg_tile_map(&self) -> TileMap {
+        self.data.bit(3).into()
+    }
+
+    pub fn set_bg_tile_map(&mut self, tile_map: TileMap) {
+        self.data.set_bit(3, tile_map.into());
+    }
+
+    pub fn object_size(&self) -> OamSize {
+        self.data.bit(2).into()
+    }
+
+    pub fn set_object_size(&mut self, object_size: OamSize) {
+        self.data.set_bit(2, object_size.into());
+    }
+
+    pub fn object_enabled(&self) -> bool {
+        self.data.bit(1)
+    }
+
+    pub fn set_object_enabled(&mut self, status: bool) {
+        self.data.set_bit(1, status);
+    }
+
+    pub fn bg_window_enabled(&self) -> bool {
+        self.data.bit(0)
+    }
+
+    pub fn set_bg_window_enabled(&mut self, status: bool) {
+        self.data.set_bit(0, status);
+    }
+}
+
 // TODO: make registers structs ??
 impl Ppu {
-    pub fn lcdc_read(&self) -> u8 {
-        let mut data = 0;
-
-        data |= (self.lcd_enabled as u8) << 7;
-        data |= (self.window_tile_map as u8) << 6;
-        data |= (self.window_enabled as u8) << 5;
-        data |= (self.tile_data as u8) << 4;
-        data |= (self.bg_tile_map as u8) << 3;
-        data |= match self.object_size {
-            16 => 1,
-            _ => 0,
-        } << 2;
-        data |= (self.object_enabled as u8) << 1;
-        data |= self.bg_window_enabled as u8;
-
-        data
-    }
-
-    pub fn lcdc_write(&mut self, data: u8) {
-        let previous_lcd_enabled = self.lcd_enabled;
-
-        self.lcd_enabled = data & 0x80 == 0x80;
-        self.window_tile_map = match data & 0x40 == 0x40 {
-            true => TileMap::High,
-            false => TileMap::Low,
-        };
-        self.window_enabled = data & 0x20 == 0x20;
-        self.tile_data = match data & 0x10 == 0x10 {
-            true => TileAddressing::Signed,
-            false => TileAddressing::Unsigned,
-        };
-        self.bg_tile_map = match data & 0x08 == 0x08 {
-            true => TileMap::High,
-            false => TileMap::Low,
-        };
-        self.object_size = match data & 0x04 == 0x04 {
-            true => 16,
-            false => 8,
-        };
-        self.object_enabled = data & 0x02 == 0x02;
-        self.bg_window_enabled = data & 0x01 == 0x01;
-
-        if previous_lcd_enabled && !self.lcd_enabled {
-            self.line_ticks = 0;
-            self.ly = 0;
-            self.mode = Mode::HBlank;
-            self.wy_trigger = false;
-            //self.clear_screen();
-        }
-
-        if !previous_lcd_enabled && self.lcd_enabled {
-            //self.change_mode(Mode::OamScan);
-            self.line_ticks = 4;
-        }
-    }
-
     pub fn stat_read(&self) -> u8 {
         let mut data = 0x80;
 
@@ -81,3 +112,6 @@ impl Ppu {
         self.mode0_interrupt = data & 0x08 == 0x08;
     }
 }
+
+#[cfg(test)]
+mod tests {}
