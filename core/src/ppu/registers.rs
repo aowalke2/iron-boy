@@ -1,5 +1,5 @@
 use super::{
-    tile::{TileData, TileMap},
+    tile::{TileAddressing, TileMap},
     Mode, Ppu,
 };
 
@@ -33,8 +33,8 @@ impl Ppu {
         };
         self.window_enabled = data & 0x20 == 0x20;
         self.tile_data = match data & 0x10 == 0x10 {
-            true => TileData::Area1,
-            false => TileData::Area0,
+            true => TileAddressing::Signed,
+            false => TileAddressing::Unsigned,
         };
         self.bg_tile_map = match data & 0x08 == 0x08 {
             true => TileMap::High,
@@ -49,14 +49,14 @@ impl Ppu {
 
         if previous_lcd_enabled && !self.lcd_enabled {
             self.line_ticks = 0;
-            self.line = 0;
+            self.ly = 0;
             self.mode = Mode::HBlank;
             self.wy_trigger = false;
-            self.clear_screen();
+            //self.clear_screen();
         }
 
         if !previous_lcd_enabled && self.lcd_enabled {
-            self.change_mode(Mode::OamScan);
+            //self.change_mode(Mode::OamScan);
             self.line_ticks = 4;
         }
     }
@@ -68,7 +68,7 @@ impl Ppu {
         data |= (self.mode2_interrupt as u8) << 5;
         data |= (self.mode1_interrupt as u8) << 4;
         data |= (self.mode0_interrupt as u8) << 3;
-        data |= ((self.line == self.lyc) as u8) << 2;
+        data |= ((self.ly == self.lyc) as u8) << 2;
         data |= self.mode as u8;
 
         data
