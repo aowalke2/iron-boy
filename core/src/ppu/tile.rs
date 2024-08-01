@@ -23,8 +23,8 @@ impl From<bool> for TileData {
 }
 
 impl From<TileData> for bool {
-    fn from(value: TileData) -> Self {
-        match value {
+    fn from(tile_data: TileData) -> Self {
+        match tile_data {
             TileData::UnsignedAddress => true,
             TileData::SignedAddress => false,
         }
@@ -56,8 +56,8 @@ impl From<bool> for TileMap {
 }
 
 impl From<TileMap> for bool {
-    fn from(value: TileMap) -> Self {
-        match value {
+    fn from(tile_map: TileMap) -> Self {
+        match tile_map {
             TileMap::High => true,
             TileMap::Low => false,
         }

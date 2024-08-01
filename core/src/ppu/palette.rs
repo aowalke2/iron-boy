@@ -1,26 +1,28 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     White = 0,
-    LightGrey = 1,
-    DarkGrey = 2,
+    LightGray = 1,
+    DarkGray = 2,
     Black = 3,
 }
 
-impl Color {
-    pub fn from_byte(c: u8) -> Color {
-        match c {
+impl From<u8> for Color {
+    fn from(value: u8) -> Color {
+        match value {
             0 => Color::White,
-            1 => Color::LightGrey,
-            2 => Color::DarkGrey,
+            1 => Color::LightGray,
+            2 => Color::DarkGray,
             _ => Color::Black,
         }
     }
+}
 
-    pub fn rgb(&self) -> (u8, u8, u8) {
-        match self {
+impl From<Color> for (u8, u8, u8) {
+    fn from(color: Color) -> (u8, u8, u8) {
+        match color {
             Color::White => (255, 255, 255),
-            Color::LightGrey => (192, 192, 192),
-            Color::DarkGrey => (96, 96, 96),
+            Color::LightGray => (192, 192, 192),
+            Color::DarkGray => (96, 96, 96),
             Color::Black => (0, 0, 0),
         }
     }
@@ -28,29 +30,31 @@ impl Color {
 
 #[derive(Copy, Clone)]
 pub struct Palette {
-    data: [Color; 4],
+    colors: [Color; 4],
+}
+
+impl From<u8> for Palette {
+    fn from(value: u8) -> Self {
+        let mut colors = [Color::White; 4];
+        for i in 0..4 {
+            colors[i] = Color::from((value >> (i * 2)) & 0b11)
+        }
+        Palette { colors }
+    }
+}
+
+impl From<Palette> for u8 {
+    fn from(palette: Palette) -> Self {
+        let mut value = 0;
+        for i in 0..palette.colors.len() {
+            value |= (palette.colors[i] as u8) << (i * 2);
+        }
+        value
+    }
 }
 
 impl Palette {
-    pub fn from_byte(byte: u8) -> Palette {
-        let mut pallete = Palette {
-            data: [Color::White, Color::White, Color::White, Color::White],
-        };
-        for i in 0..pallete.data.len() {
-            pallete.data[i] = Color::from_byte((byte >> (i * 2)) & 0b11)
-        }
-        pallete
-    }
-
-    pub fn into_byte(&self) -> u8 {
-        let mut pallete = 0;
-        for i in 0..self.data.len() {
-            pallete |= (self.data[i] as u8) << (i * 2);
-        }
-        pallete
-    }
-
-    pub fn get_color(&self, c: u8) -> Color {
-        self.data[c as usize]
+    pub fn color(&self, c: u8) -> Color {
+        self.colors[c as usize]
     }
 }
