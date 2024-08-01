@@ -24,8 +24,8 @@ impl GameBoy {
     }
 
     pub fn get_ppu_update(&mut self) -> bool {
-        let result = self.cpu.bus.ppu.screen_updated;
-        self.cpu.bus.ppu.screen_updated = false;
+        let result = self.cpu.bus.ppu.frame_completed;
+        self.cpu.bus.ppu.frame_completed = false;
         result
     }
 

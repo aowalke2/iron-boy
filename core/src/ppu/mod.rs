@@ -71,7 +71,7 @@ pub struct Ppu {
     oam: [u8; OAM_SIZE],
     vrambank: usize,
     pub screen_buffer: Vec<(u8, u8, u8)>,
-    pub screen_updated: bool,
+    pub frame_completed: bool,
     pub interrupt: u8,
 }
 
@@ -146,7 +146,7 @@ impl Ppu {
             oam: [0; OAM_SIZE],
             screen_buffer: vec![(0, 0, 0); SCREEN_WIDTH * SCREEN_HEIGHT],
             bg_window_priority: [Priority::Normal; SCREEN_WIDTH],
-            screen_updated: false,
+            frame_completed: false,
             interrupt: 0,
             vrambank: 0,
         }
@@ -202,14 +202,17 @@ impl Ppu {
         match ppu_mode {
             PpuMode::HBlank => {
                 // more to add?
+                self.render_scanline();
                 interrupt_triggered = self.lcd_status.mode0_interrupt();
             }
             PpuMode::VBlank => {
                 // more to add?
+                self.frame_completed = true;
                 self.interrupt |= 0b01; //Vblank Interrupt
                 interrupt_triggered = self.lcd_status.mode1_interrupt();
             }
             PpuMode::OamScan => {
+                self.build_oam_buffer();
                 interrupt_triggered = self.lcd_status.mode2_interrupt();
             }
             PpuMode::DrawingPixels => {
@@ -221,5 +224,13 @@ impl Ppu {
         if interrupt_triggered {
             self.interrupt |= 0b10
         }
+    }
+
+    fn render_scanline(&self) {
+        todo!()
+    }
+
+    fn build_oam_buffer(&self) {
+        todo!()
     }
 }
