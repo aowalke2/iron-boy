@@ -9,8 +9,8 @@ In my quest to build a GBA emulator in Rust, I made a Game Boy emulator in Rust.
 - [ ] MBC2, MBC3, MB5 cartridge support
 - [ ] CGB support
 - [ ] WASM for browser support
-- [ ] Refactor CPU to use into adn from traits
-- [ ] Give components a common trait
+- [ ] Refactor CPU to use into and from traits
+- [ ] Give components a common traitß
 - [ ] GDB?
 - [ ] Sound issues
 

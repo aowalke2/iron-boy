@@ -14,6 +14,8 @@ const VRAM_SIZE: usize = 0x4000;
 const OAM_SIZE: usize = 0xA0;
 pub const SCREEN_WIDTH: usize = 160;
 pub const SCREEN_HEIGHT: usize = 144;
+const SCANLINE_LENGTH: u32 = 456;
+const SCANLINE_COUNT: u8 = 154;
 
 #[derive(PartialEq, Copy, Clone)]
 enum Priority {
@@ -100,14 +102,17 @@ impl Memory for Ppu {
         match address {
             0x8000..=0x9FFF => self.vram[(self.vrambank * 0x2000) | (address as usize & 0x1FFF)] = data,
             0xFE00..=0xFE9F => self.oam[address as usize - 0xFE00] = data,
-            0xFF40 => self.lcd_control.write(data),
+            0xFF40 => {
+                // may need to do stuff when the lcd_enable changes?
+                self.lcd_control.write(data);
+            }
             0xFF41 => self.lcd_status.write(data),
             0xFF42 => self.scy = data,
             0xFF43 => self.scx = data,
             0xFF44 => {} // Read-only
             0xFF45 => {
                 self.lyc = data;
-                //self.trigger_lyc_interrupt();
+                self.trigger_lyc_interrupt();
             }
             0xFF46 => panic!("0xFF46 should be handled by Bus"),
             0xFF47 => self.bg_palette = Palette::from(data),
@@ -148,6 +153,73 @@ impl Ppu {
     }
 
     pub fn cycle(&mut self, ticks: u32) {
-        todo!("{}", ticks)
+        if !self.lcd_control.lcd_enabled() {
+            return;
+        }
+
+        self.ticks += ticks;
+        if self.ticks >= SCANLINE_LENGTH {
+            self.ticks -= SCANLINE_LENGTH;
+            self.ly = (self.ly + 1) % SCANLINE_COUNT;
+        }
+
+        self.trigger_lyc_interrupt();
+        if self.ly >= 144 && self.lcd_status.ppu_mode() != PpuMode::VBlank {
+            self.change_mode(PpuMode::VBlank);
+            return;
+        }
+
+        if self.ly < 144 {
+            match self.ticks {
+                0..=80 => {
+                    if self.lcd_status.ppu_mode() != PpuMode::OamScan {
+                        self.change_mode(PpuMode::OamScan);
+                    }
+                }
+                81..=252 => {
+                    if self.lcd_status.ppu_mode() != PpuMode::DrawingPixels {
+                        self.change_mode(PpuMode::DrawingPixels);
+                    }
+                }
+                _ => {
+                    if self.lcd_status.ppu_mode() != PpuMode::HBlank {
+                        self.change_mode(PpuMode::HBlank);
+                    }
+                }
+            }
+        }
+    }
+
+    fn trigger_lyc_interrupt(&mut self) {
+        if self.lyc == self.ly && self.lcd_status.lyc_interrupt() {
+            self.interrupt |= 0b10
+        }
+    }
+
+    fn change_mode(&mut self, ppu_mode: PpuMode) {
+        self.lcd_status.set_ppu_mode(ppu_mode);
+        let interrupt_triggered;
+        match ppu_mode {
+            PpuMode::HBlank => {
+                // more to add?
+                interrupt_triggered = self.lcd_status.mode0_interrupt();
+            }
+            PpuMode::VBlank => {
+                // more to add?
+                self.interrupt |= 0b01; //Vblank Interrupt
+                interrupt_triggered = self.lcd_status.mode1_interrupt();
+            }
+            PpuMode::OamScan => {
+                interrupt_triggered = self.lcd_status.mode2_interrupt();
+            }
+            PpuMode::DrawingPixels => {
+                // more to add?
+                interrupt_triggered = false
+            }
+        }
+
+        if interrupt_triggered {
+            self.interrupt |= 0b10
+        }
     }
 }
