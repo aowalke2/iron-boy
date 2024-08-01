@@ -21,7 +21,7 @@ enum Priority {
     Normal,
 }
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub enum PpuMode {
     OamScan = 2,
     DrawingPixels = 3,

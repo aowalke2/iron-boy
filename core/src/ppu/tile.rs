@@ -31,7 +31,7 @@ impl From<TileData> for bool {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TileMap {
     Low,
     High,

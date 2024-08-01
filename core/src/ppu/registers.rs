@@ -1,7 +1,7 @@
 use bit::BitIndex;
 
 use super::{
-    oam::OamSize,
+    oam::ObjectSize,
     tile::{TileData, TileMap},
     PpuMode,
 };
@@ -20,8 +20,8 @@ impl LcdControl {
         self.value
     }
 
-    pub fn write(&mut self, data: u8) {
-        self.value = data
+    pub fn write(&mut self, value: u8) {
+        self.value = value
     }
 
     // not sure if i ever need to set bits individually
@@ -65,11 +65,11 @@ impl LcdControl {
         self.value.set_bit(3, tile_map.into());
     }
 
-    pub fn object_size(&self) -> OamSize {
+    pub fn object_size(&self) -> ObjectSize {
         self.value.bit(2).into()
     }
 
-    pub fn set_object_size(&mut self, object_size: OamSize) {
+    pub fn set_object_size(&mut self, object_size: ObjectSize) {
         self.value.set_bit(2, object_size.into());
     }
 
@@ -97,15 +97,15 @@ pub struct LcdStatus {
 
 impl LcdStatus {
     pub fn new(value: u8) -> Self {
-        LcdStatus { value }
+        LcdStatus { value: value & 0b0111_1000 }
     }
 
     pub fn read(&self) -> u8 {
         self.value
     }
 
-    pub fn write(&mut self, data: u8) {
-        self.value = data & !0b0111_1000
+    pub fn write(&mut self, value: u8) {
+        self.value = value & 0b0111_1000
     }
 
     pub fn lyc_interrupt(&self) -> bool {
@@ -158,4 +158,61 @@ impl LcdStatus {
 }
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use crate::ppu::{
+        oam::ObjectSize,
+        registers::LcdStatus,
+        tile::{TileData, TileMap},
+        PpuMode,
+    };
+
+    use super::LcdControl;
+
+    #[test]
+    fn test_lcd_control() {
+        let mut lcd_control = LcdControl::new(0b1110_0111);
+        assert_eq!(lcd_control.lcd_enabled(), true);
+        assert_eq!(lcd_control.window_tile_map(), TileMap::High);
+        assert_eq!(lcd_control.window_enabled(), true);
+        assert_eq!(lcd_control.tile_data(), TileData::SignedAddress);
+        assert_eq!(lcd_control.bg_tile_map(), TileMap::Low);
+        assert_eq!(lcd_control.object_size(), ObjectSize::Size8x16);
+        assert_eq!(lcd_control.object_enabled(), true);
+        assert_eq!(lcd_control.bg_window_enabled(), true);
+
+        lcd_control.set_lcd_enabled(false);
+        lcd_control.set_window_tile_map(TileMap::Low);
+        lcd_control.set_window_enabled(false);
+        lcd_control.set_tile_data(TileData::UnsignedAddress);
+        lcd_control.set_bg_tile_map(TileMap::High);
+        lcd_control.set_object_size(ObjectSize::Size8x8);
+        lcd_control.set_object_enabled(false);
+        lcd_control.set_bg_window_enabled(false);
+
+        assert_eq!(lcd_control.read(), 0b0001_1000);
+        lcd_control.write(0b1110_0111);
+        assert_eq!(lcd_control.read(), 0b1110_0111);
+    }
+
+    #[test]
+    fn test_lcd_status() {
+        let mut lcd_status = LcdStatus::new(0b1111_1111);
+        assert_eq!(lcd_status.lyc_interrupt(), true);
+        assert_eq!(lcd_status.mode2_interrupt(), true);
+        assert_eq!(lcd_status.mode1_interrupt(), true);
+        assert_eq!(lcd_status.mode0_interrupt(), true);
+        assert_eq!(lcd_status.lyc_equals_ly(), false);
+        assert_eq!(lcd_status.ppu_mode(), PpuMode::HBlank);
+
+        lcd_status.set_lyc_interrupt(false);
+        lcd_status.set_mode2_interrupt(false);
+        lcd_status.set_mode1_interrupt(false);
+        lcd_status.set_mode0_interrupt(false);
+        lcd_status.set_lyc_equals_ly(true);
+        lcd_status.set_ppu_mode(PpuMode::OamScan);
+
+        assert_eq!(lcd_status.read(), 0b0000_0110);
+        lcd_status.write(0b1110_0111);
+        assert_eq!(lcd_status.read(), 0b0110_0000);
+    }
+}
