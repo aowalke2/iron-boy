@@ -114,10 +114,6 @@ impl LcdStatus {
         self.value.bit(6)
     }
 
-    pub fn set_lyc_interrupt(&mut self, status: bool) {
-        self.value.set_bit(6, status);
-    }
-
     pub fn mode2_interrupt(&self) -> bool {
         self.value.bit(5)
     }
@@ -128,10 +124,6 @@ impl LcdStatus {
 
     pub fn mode0_interrupt(&self) -> bool {
         self.value.bit(3)
-    }
-
-    pub fn lyc_equals_ly(&self) -> bool {
-        self.value.bit(2)
     }
 
     pub fn set_lyc_equals_ly(&mut self, status: bool) {
@@ -191,14 +183,12 @@ mod tests {
         assert_eq!(lcd_status.mode2_interrupt(), true);
         assert_eq!(lcd_status.mode1_interrupt(), true);
         assert_eq!(lcd_status.mode0_interrupt(), true);
-        assert_eq!(lcd_status.lyc_equals_ly(), false);
         assert_eq!(lcd_status.ppu_mode(), PpuMode::HBlank);
 
-        lcd_status.set_lyc_interrupt(false);
         lcd_status.set_lyc_equals_ly(true);
         lcd_status.set_ppu_mode(PpuMode::OamScan);
 
-        assert_eq!(lcd_status.read(), 0b0000_0110);
+        assert_eq!(lcd_status.read(), 0b0111_1110);
         lcd_status.write(0b1110_0111);
         assert_eq!(lcd_status.read(), 0b0110_0000);
     }
