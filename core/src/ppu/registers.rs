@@ -97,7 +97,9 @@ pub struct LcdStatus {
 
 impl LcdStatus {
     pub fn new(value: u8) -> Self {
-        LcdStatus { value: value & 0b0111_1000 }
+        LcdStatus {
+            value: value & 0b0111_1000,
+        }
     }
 
     pub fn read(&self) -> u8 {
@@ -120,24 +122,12 @@ impl LcdStatus {
         self.value.bit(5)
     }
 
-    pub fn set_mode2_interrupt(&mut self, status: bool) {
-        self.value.set_bit(5, status);
-    }
-
     pub fn mode1_interrupt(&self) -> bool {
         self.value.bit(4)
     }
 
-    pub fn set_mode1_interrupt(&mut self, status: bool) {
-        self.value.set_bit(4, status);
-    }
-
     pub fn mode0_interrupt(&self) -> bool {
         self.value.bit(3)
-    }
-
-    pub fn set_mode0_interrupt(&mut self, status: bool) {
-        self.value.set_bit(3, status);
     }
 
     pub fn lyc_equals_ly(&self) -> bool {
@@ -174,7 +164,7 @@ mod tests {
         assert_eq!(lcd_control.lcd_enabled(), true);
         assert_eq!(lcd_control.window_tile_map(), TileMap::High);
         assert_eq!(lcd_control.window_enabled(), true);
-        assert_eq!(lcd_control.tile_data(), TileData::SignedAddress);
+        assert_eq!(lcd_control.tile_data(), TileData::SignedAddressMode);
         assert_eq!(lcd_control.bg_tile_map(), TileMap::Low);
         assert_eq!(lcd_control.object_size(), ObjectSize::Size8x16);
         assert_eq!(lcd_control.object_enabled(), true);
@@ -183,7 +173,7 @@ mod tests {
         lcd_control.set_lcd_enabled(false);
         lcd_control.set_window_tile_map(TileMap::Low);
         lcd_control.set_window_enabled(false);
-        lcd_control.set_tile_data(TileData::UnsignedAddress);
+        lcd_control.set_tile_data(TileData::UnsignedAddressMode);
         lcd_control.set_bg_tile_map(TileMap::High);
         lcd_control.set_object_size(ObjectSize::Size8x8);
         lcd_control.set_object_enabled(false);
@@ -205,9 +195,6 @@ mod tests {
         assert_eq!(lcd_status.ppu_mode(), PpuMode::HBlank);
 
         lcd_status.set_lyc_interrupt(false);
-        lcd_status.set_mode2_interrupt(false);
-        lcd_status.set_mode1_interrupt(false);
-        lcd_status.set_mode0_interrupt(false);
         lcd_status.set_lyc_equals_ly(true);
         lcd_status.set_ppu_mode(PpuMode::OamScan);
 

@@ -14,7 +14,10 @@ impl GameBoy {
     pub fn new_dmg(rom_name: &str, skip_boot: bool) -> GameBoy {
         let cartridge = Cartridge::load(rom_name.into()).unwrap();
         GameBoy {
-            cpu: Cpu::new(Bus::new(cartridge), Registers::new(utils::GameBoyMode::Monochrome, skip_boot)),
+            cpu: Cpu::new(
+                Bus::new(cartridge),
+                Registers::new(utils::GameBoyMode::Monochrome, skip_boot),
+            ),
             volume: 50,
         }
     }
@@ -31,10 +34,6 @@ impl GameBoy {
 
     pub fn get_ppu_data(&self) -> &[(u8, u8, u8)] {
         &self.cpu.bus.ppu.screen_buffer
-    }
-
-    pub fn get_vram(&self) -> &[u8] {
-        &self.cpu.bus.ppu.vram
     }
 
     pub fn button_up(&mut self, button: JoypadButton) {

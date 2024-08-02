@@ -58,14 +58,18 @@ impl Memory for Bus {
             0x8000..=0x9FFF => self.ppu.mem_read(address),
             0xA000..=0xBFFF => self.cartridge.mbc.ram_read(address),
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[address as usize & 0x0FFF],
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF],
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => {
+                self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF]
+            }
             0xFE00..=0xFE9F => self.ppu.mem_read(address),
             0xFF00 => self.joy_pad.mem_read(address),
             0xFF01..=0xFF02 => self.serial_transfer.mem_read(address),
             0xFF04..=0xFF07 => self.timer.mem_read(address),
             0xFF0F => self.interrupt_flag | 0b11100000,
             0xFF10..=0xFF3F => self.apu.mem_read(address),
-            0xFF40..=0xFF4B => self.ppu.mem_read(address),
+            0xFF40..=0xFF45 => self.ppu.mem_read(address),
+            0xFF46 => 0,
+            0xFF47..=0xFF4B => self.ppu.mem_read(address),
             0xFF50 => todo!("Set to non-zero to disable boot ROM"),
             0xFF51..=0xFF55 => todo!("VRAM DMA"),
             0xFF56 => todo!("Infrared Comms"),
@@ -83,7 +87,9 @@ impl Memory for Bus {
             0x8000..=0x9FFF => self.ppu.mem_write(address, data),
             0xA000..=0xBFFF => self.cartridge.mbc.ram_write(address, data),
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[address as usize & 0x0FFF] = data,
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF] = data,
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => {
+                self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF] = data
+            }
             0xFE00..=0xFE9F => self.ppu.mem_write(address, data),
             0xFF00 => self.joy_pad.mem_write(address, data),
             0xFF01..=0xFF02 => self.serial_transfer.mem_write(address, data),
