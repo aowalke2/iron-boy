@@ -7,9 +7,9 @@ use crate::{
 };
 
 pub trait Memory {
-    fn mem_read(&mut self, address: u16) -> u8;
+    fn mem_read(&self, address: u16) -> u8;
 
-    fn mem_read_16(&mut self, address: u16) -> u16 {
+    fn mem_read_16(&self, address: u16) -> u16 {
         let lo = self.mem_read(address) as u16;
         let hi = self.mem_read(address + 1) as u16;
         hi << 8 | lo
@@ -46,7 +46,7 @@ pub struct Bus {
 }
 
 impl Memory for Bus {
-    fn mem_read(&mut self, address: u16) -> u8 {
+    fn mem_read(&self, address: u16) -> u8 {
         match address {
             0x0000..=0x7FFF => {
                 // figure out how to make this toggleable
@@ -58,9 +58,7 @@ impl Memory for Bus {
             0x8000..=0x9FFF => self.ppu.mem_read(address),
             0xA000..=0xBFFF => self.cartridge.mbc.ram_read(address),
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[address as usize & 0x0FFF],
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => {
-                self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF]
-            }
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF],
             0xFE00..=0xFE9F => self.ppu.mem_read(address),
             0xFF00 => self.joy_pad.mem_read(address),
             0xFF01..=0xFF02 => self.serial_transfer.mem_read(address),
@@ -87,9 +85,7 @@ impl Memory for Bus {
             0x8000..=0x9FFF => self.ppu.mem_write(address, data),
             0xA000..=0xBFFF => self.cartridge.mbc.ram_write(address, data),
             0xC000..=0xCFFF | 0xE000..=0xEFFF => self.wram[address as usize & 0x0FFF] = data,
-            0xD000..=0xDFFF | 0xF000..=0xFDFF => {
-                self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF] = data
-            }
+            0xD000..=0xDFFF | 0xF000..=0xFDFF => self.wram[(self.wram_bank * 0x1000) | address as usize & 0x0FFF] = data,
             0xFE00..=0xFE9F => self.ppu.mem_write(address, data),
             0xFF00 => self.joy_pad.mem_write(address, data),
             0xFF01..=0xFF02 => self.serial_transfer.mem_write(address, data),

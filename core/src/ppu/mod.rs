@@ -1,8 +1,10 @@
 use background::Background;
+use bit::BitIndex;
+use oam::{ObjectAttributes, ObjectSize, TOTAL_OBJECTS};
 use palette::Palette;
 use registers::{LcdControl, LcdStatus};
 use std::cmp::Ordering;
-use tile::TileAccess;
+use tile::{TileAccess, TILE_WIDTH};
 use window::Window;
 
 use crate::bus::Memory;
@@ -15,7 +17,6 @@ mod tile;
 mod window;
 
 const VRAM_SIZE: usize = 0x4000;
-const OAM_SIZE: usize = 0xA0;
 
 pub const VIEWPORT_WIDTH: usize = 160;
 pub const VIEWPORT_HEIGHT: usize = 144;
@@ -72,8 +73,8 @@ pub struct Ppu {
     obj1_palette: Palette,
     window: Window,
     priority_map: [bool; BACKGROUND_WIDTH * BACKGROUND_HEIGHT],
-    oam: [u8; OAM_SIZE],
-    oam_buffer: Vec<(usize, u8)>,
+    oam: [ObjectAttributes; TOTAL_OBJECTS],
+    oam_buffer: Vec<(usize, i16)>,
     vram: [u8; VRAM_SIZE],
     pub screen_buffer: Vec<(u8, u8, u8)>,
     pub frame_completed: bool,
@@ -81,10 +82,10 @@ pub struct Ppu {
 }
 
 impl Memory for Ppu {
-    fn mem_read(&mut self, address: u16) -> u8 {
+    fn mem_read(&self, address: u16) -> u8 {
         match address {
             0x8000..=0x9FFF => self.vram[address as usize - 0x8000],
-            0xFE00..=0xFE9F => self.oam[address as usize - 0xFE00],
+            0xFE00..=0xFE9F => self.oam_read(address - 0xFE00),
             0xFF40 => self.lcd_control.read(),
             0xFF41 => self.lcd_status.read(),
             0xFF42 => self.background.scy(),
@@ -105,7 +106,7 @@ impl Memory for Ppu {
     fn mem_write(&mut self, address: u16, data: u8) {
         match address {
             0x8000..=0x9FFF => self.vram[address as usize - 0x8000] = data,
-            0xFE00..=0xFE9F => self.oam[address as usize - 0xFE00] = data,
+            0xFE00..=0xFE9F => self.oam_write(address - 0xFE00, data),
             0xFF40 => self.set_lcd_control(data),
             0xFF41 => self.lcd_status.write(data),
             0xFF42 => self.background.set_scy(data),
@@ -137,7 +138,7 @@ impl Ppu {
             obj0_palette: Palette::from(0),
             obj1_palette: Palette::from(1),
             window: Window::new(),
-            oam: [0; OAM_SIZE],
+            oam: [ObjectAttributes::new(); TOTAL_OBJECTS],
             oam_buffer: Vec::new(),
             vram: [0; VRAM_SIZE],
             screen_buffer: vec![(0, 0, 0); VIEWPORT_WIDTH * VIEWPORT_HEIGHT],
@@ -241,17 +242,49 @@ impl Ppu {
         }
     }
 
-    fn build_oam_buffer(&self) {
-        //todo!()
+    fn oam_read(&self, address: u16) -> u8 {
+        let oam_address = (address / 4) as usize;
+        let attributes = address % 4;
+        match attributes {
+            0 => self.oam[oam_address].y_position(),
+            1 => self.oam[oam_address].x_position(),
+            2 => self.oam[oam_address].tile_index(),
+            _ => self.oam[oam_address].flags(),
+        }
+    }
+
+    fn oam_write(&mut self, address: u16, value: u8) {
+        let oam_address = (address / 4) as usize;
+        let attributes = address % 4;
+        match attributes {
+            0 => self.oam[oam_address].set_y_position(value),
+            1 => self.oam[oam_address].set_x_position(value),
+            2 => self.oam[oam_address].set_tile_index(value),
+            _ => self.oam[oam_address].set_flags(value),
+        }
+    }
+
+    fn build_oam_buffer(&mut self) {
+        self.oam_buffer.clear();
+        let ly = self.ly as i16;
+        let object_height = self.lcd_control.object_size();
+        for i in 0..TOTAL_OBJECTS {
+            let object = self.oam[i];
+            let object_y = object.y_position() as i16 - 16;
+            let object_x = object.x_position() as i16 - 8;
+            if ly >= object_y && ly < object_y + object_height as i16 {
+                self.oam_buffer.push((i, object_x))
+            }
+        }
+
+        self.oam_buffer.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0)));
+        self.oam_buffer.truncate(10);
+        self.oam_buffer.reverse();
     }
 
     fn clear_screen(&mut self) {
-        for i in 0..self.priority_map.len() {
-            if i < self.screen_buffer.len() {
-                self.screen_buffer[i] = (255, 255, 255);
-            }
-            self.priority_map[i] = false;
-        }
+        self.priority_map.fill(false);
+        self.screen_buffer.fill((255, 255, 255));
         self.frame_completed = true;
     }
 
@@ -261,29 +294,47 @@ impl Ppu {
         }
 
         if self.lcd_control.object_enabled() {
-            //self.render_object_line();
+            self.render_object_line();
         }
     }
 
     fn render_background_window_line(&mut self) {
-        for x in 0..VIEWPORT_WIDTH as u8 {
-            let (tile_index_address, tile_pixel_x, tile_pixel_y) = self.background_window_tile_info(x);
+        for lx in 0..VIEWPORT_WIDTH as u8 {
+            // let (tile_index_address, tile_pixel_x, tile_pixel_y) = self.background_window_tile_info(lx);
+            // let tile_index = self.mem_read(tile_index_address);
+            // let tile_address = self.lcd_control.tile_data().address(tile_index);
+
+            // let tile_line_address = tile_address + tile_pixel_y as u16;
+            // let byte1 = self.mem_read(tile_line_address);
+            // let byte2 = self.mem_read(tile_line_address + 1);
+            // let color_index = ((byte1 >> tile_pixel_x) & 1) | ((byte2 >> tile_pixel_x) & 1) << 1;
+
+            // let priority_index = lx as usize + self.ly as usize * BACKGROUND_WIDTH;
+            // if color_index == 0 {
+            //     self.priority_map[priority_index] = true;
+            // }
+
+            // let color = self.bg_palette.color(color_index);
+            // let pixel_index = lx as usize + self.ly as usize * VIEWPORT_WIDTH;
+            // self.screen_buffer[pixel_index] = color.into();
+
+            let (tile_index_address, x_offset, y_offset) = self.background_window_tile_info(lx);
+
             let tile_index = self.mem_read(tile_index_address);
             let tile_address = self.lcd_control.tile_data().address(tile_index);
 
-            let pixel_address = tile_address + tile_pixel_y as u16;
-            let byte1 = self.mem_read(pixel_address);
-            let byte2 = self.mem_read(pixel_address + 1);
-            let color_index = ((byte1 >> tile_pixel_x) & 1) | ((byte2 >> tile_pixel_x) & 1) << 1;
+            let byte1 = self.mem_read(tile_address + y_offset as u16);
+            let byte2 = self.mem_read(tile_address + y_offset as u16 + 1);
+            let color_index = ((byte1 >> x_offset) & 1) | ((byte2 >> x_offset) & 1) << 1;
 
-            let priority_index = x as usize + self.ly as usize * BACKGROUND_WIDTH;
+            let overlap_offset = self.ly as usize + BACKGROUND_WIDTH * lx as usize;
             if color_index == 0 {
-                self.priority_map[priority_index] = true;
+                self.priority_map[overlap_offset] = true;
             }
 
-            let color = self.bg_palette.color(color_index);
-            let pixel_index = x as usize + self.ly as usize * VIEWPORT_WIDTH;
-            self.screen_buffer[pixel_index] = color.into();
+            let pixel = self.bg_palette.color(color_index);
+            let offset = lx as usize + self.ly as usize * VIEWPORT_WIDTH;
+            self.screen_buffer[offset] = pixel.into();
         }
     }
 
@@ -305,5 +356,64 @@ impl Ppu {
             let (tile_pixel_x, tile_pixel_y) = self.background.tile_pixel_coordinates(tile_map_x, tile_map_y);
             (tile_index_address, tile_pixel_x, tile_pixel_y)
         }
+    }
+
+    fn render_object_line(&mut self) {
+        for (object_index, x_position) in self.oam_buffer.iter() {
+            let object = self.oam[*object_index];
+            let object_y = object.y_position() as i16 - 16;
+
+            let mut tile_index = object.tile_index();
+            let object_size = self.lcd_control.object_size();
+            if object_size == ObjectSize::Size8x16 {
+                tile_index &= 0b1111_1110;
+            }
+
+            let tile_address = 0x8000 + (tile_index as u16 * 16);
+            let tile_line = if object.y_flip() {
+                object_size as i16 - 1 - (self.ly as i16 - object_y)
+            } else {
+                self.ly as i16 - object_y
+            };
+
+            let tile_line_address = tile_address + tile_line as u16 * 2;
+            let byte1 = self.mem_read(tile_line_address);
+            let byte2 = self.mem_read(tile_line_address + 1);
+
+            for tile_pixel_x in 0..TILE_WIDTH {
+                let lx = x_position + tile_pixel_x as i16;
+                if !(0..VIEWPORT_WIDTH).contains(&(lx as usize)) {
+                    continue;
+                }
+
+                let priority_index = self.ly as usize + BACKGROUND_WIDTH * lx as usize;
+                if self.is_overlapping(&object, priority_index) {
+                    continue;
+                }
+
+                let tile_pixel_x = if object.x_flip() { tile_pixel_x } else { 7 - tile_pixel_x };
+                let color_index = ((byte1 >> tile_pixel_x) & 1) | ((byte2 >> tile_pixel_x) & 1) << 1;
+                if color_index == 0 {
+                    continue;
+                }
+
+                let color = if object.dmg_pallete() {
+                    self.obj1_palette.color(color_index)
+                } else {
+                    self.obj0_palette.color(color_index)
+                };
+
+                let pixel_index = lx as usize + self.ly as usize * VIEWPORT_WIDTH;
+                self.screen_buffer[pixel_index] = color.into();
+            }
+        }
+    }
+
+    fn is_overlapping(&self, oam_entry: &ObjectAttributes, offset: usize) -> bool {
+        if !oam_entry.priority() {
+            return false;
+        }
+
+        !self.priority_map[offset]
     }
 }

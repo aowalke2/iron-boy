@@ -28,7 +28,7 @@ impl From<Color> for (u8, u8, u8) {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Palette {
     colors: [Color; 4],
 }

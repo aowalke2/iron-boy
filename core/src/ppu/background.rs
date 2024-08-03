@@ -1,5 +1,6 @@
 use super::tile::{TileAccess, TILE_HEIGHT, TILE_WIDTH};
 
+#[derive(Debug, Copy, Clone)]
 pub struct Background {
     scy: u8,
     scx: u8,

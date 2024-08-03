@@ -36,7 +36,7 @@ pub struct Apu {
 }
 
 impl Memory for Apu {
-    fn mem_read(&mut self, address: u16) -> u8 {
+    fn mem_read(&self, address: u16) -> u8 {
         match address {
             0xFF10..=0xFF14 => self.ch1.mem_read(address),
             0xFF16..=0xFF19 => self.ch2.mem_read(address),
@@ -102,7 +102,9 @@ impl Apu {
         self.counter += ticks as f32;
 
         while self.counter >= CPU_CYCLES_PER_SAMPLE {
-            let (output_left, output_right) = self.mixer.mix([&self.ch1.base, &self.ch2.base, &self.ch3.base, &self.ch4.base]);
+            let (output_left, output_right) =
+                self.mixer
+                    .mix([&self.ch1.base, &self.ch2.base, &self.ch3.base, &self.ch4.base]);
             self.audio_buffer.push_back(output_left);
             self.audio_buffer.push_back(output_right);
             self.counter -= CPU_CYCLES_PER_SAMPLE;

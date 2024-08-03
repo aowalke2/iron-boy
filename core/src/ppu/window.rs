@@ -3,6 +3,7 @@ use super::{
     VIEWPORT_HEIGHT, VIEWPORT_WIDTH,
 };
 
+#[derive(Debug, Copy, Clone)]
 pub struct Window {
     wy: u8,
     wx: u8,
