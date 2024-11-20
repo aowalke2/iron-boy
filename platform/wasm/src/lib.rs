@@ -1,5 +1,7 @@
 use std::{
+    cell::RefCell,
     collections::VecDeque,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -8,6 +10,7 @@ use ironboy_core::{
     bus::Bus,
     cartridge::Cartridge,
     cpu::{registers::Registers, Cpu, CPU_CLOCK_SPEED},
+    scheduler::Scheduler,
     GameBoyMode, JoypadButton, FPS,
 };
 use wasm_bindgen::{
@@ -37,8 +40,9 @@ impl GameBoy {
         utils::set_panic_hook();
         let cartridge = Cartridge::load(rom_name.into(), buffer).unwrap();
         let game_title = cartridge.title().to_string();
+        let scheduler = Rc::new(RefCell::new(Scheduler::new()));
         GameBoy {
-            cpu: Cpu::new(Bus::new(cartridge), Registers::new(GameBoyMode::Monochrome, skip_boot)),
+            cpu: Cpu::new(Bus::new(cartridge, scheduler), Registers::new(GameBoyMode::Monochrome, skip_boot)),
             game_title,
             frame: Some(vec![0; 160 * 144 * 4].into_boxed_slice()),
             volume: 50,

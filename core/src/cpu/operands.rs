@@ -48,7 +48,7 @@ impl fmt::Display for R8 {
 }
 
 impl R8 {
-    pub fn read(&self, cpu: &Cpu) -> u8 {
+    pub fn read(&self, cpu: &mut Cpu) -> u8 {
         match self {
             R8::A => cpu.registers.a,
             R8::B => cpu.registers.b,

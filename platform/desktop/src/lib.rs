@@ -1,9 +1,12 @@
 pub mod audio;
 
+use std::{cell::RefCell, rc::Rc};
+
 use ironboy_core::{
     bus::Bus,
     cartridge::Cartridge,
     cpu::{registers::Registers, Cpu},
+    scheduler::Scheduler,
     GameBoyMode, JoypadButton,
 };
 
@@ -15,8 +18,9 @@ pub struct GameBoy {
 impl GameBoy {
     pub fn new_dmg(rom_name: &str, buffer: Vec<u8>, skip_boot: bool) -> GameBoy {
         let cartridge = Cartridge::load(rom_name.into(), buffer).unwrap();
+        let scheduler = Rc::new(RefCell::new(Scheduler::new()));
         GameBoy {
-            cpu: Cpu::new(Bus::new(cartridge), Registers::new(GameBoyMode::Monochrome, skip_boot)),
+            cpu: Cpu::new(Bus::new(cartridge, scheduler.clone()), Registers::new(GameBoyMode::Monochrome, skip_boot)),
             volume: 50,
         }
     }

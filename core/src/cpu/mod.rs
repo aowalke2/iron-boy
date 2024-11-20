@@ -27,7 +27,7 @@ pub struct Cpu {
 }
 
 impl MemoryAccess for Cpu {
-    fn read_8(&self, address: u16) -> u8 {
+    fn read_8(&mut self, address: u16) -> u8 {
         self.bus.read_8(address)
     }
 
@@ -205,7 +205,7 @@ impl Cpu {
         }
     }
 
-    fn log_cycle(&self, pc: u16) {
+    fn log_cycle(&mut self, pc: u16) {
         let flags = format!(
             "{}{}{}{}",
             if u8::from(&self.registers.f) & (0b1000_0000) == 0b1000_0000 {
@@ -230,13 +230,15 @@ impl Cpu {
             }
         );
 
+        let pc1 = self.read_8(pc + 1);
+        let pc2 = self.read_8(pc + 2);
         let log = format!(
             "{:#06X}: {:<16} ({:#04X} {:#04X} {:#04X}) A: {:#04X} F: {flags} BC: {:#06X} DE: {:#06X} HL: {:#06X} SP: {:#06X}\n",
             pc,
-            &self.current_instruction.disassemble(self.current_opcode, self.read_8(pc + 1)),
+            &self.current_instruction.disassemble(self.current_opcode, pc1),
             self.current_opcode,
-            self.read_8(pc + 1),
-            self.read_8(pc + 2),
+            pc1,
+            pc2,
             self.registers.a,
             self.registers.bc(),
             self.registers.de(),

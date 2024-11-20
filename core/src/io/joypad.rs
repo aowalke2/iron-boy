@@ -20,7 +20,7 @@ pub struct JoyPad {
 }
 
 impl MemoryAccess for JoyPad {
-    fn read_8(&self, _: u16) -> u8 {
+    fn read_8(&mut self, _: u16) -> u8 {
         self.value
     }
 

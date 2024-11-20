@@ -20,10 +20,10 @@ pub const VIEWPORT_WIDTH: usize = 160;
 pub const VIEWPORT_HEIGHT: usize = 144;
 pub const FULL_WIDTH: usize = 256;
 
-const OAM_CYCLES: u32 = 80;
-const DRAWING_PIXELS_CYCLES: u32 = 172;
-const HBLANK_CYCLES: u32 = 204;
-const VBLANK_CYCLES: u32 = 456;
+pub const OAM_CYCLES: u32 = 80;
+pub const DRAWING_PIXELS_CYCLES: u32 = 172;
+pub const HBLANK_CYCLES: u32 = 204;
+pub const VBLANK_CYCLES: u32 = 456;
 
 const MAX_LINE: u8 = 154;
 pub const FPS: f32 = CPU_CLOCK_SPEED as f32 / (MAX_LINE as f32 * VBLANK_CYCLES as f32);
@@ -51,7 +51,7 @@ pub struct Ppu {
 }
 
 impl MemoryAccess for Ppu {
-    fn read_8(&self, address: u16) -> u8 {
+    fn read_8(&mut self, address: u16) -> u8 {
         match address {
             0x8000..=0x9FFF => self.vram[address as usize - 0x8000],
             0xFE00..=0xFE9F => self.read_oam(address - 0xFE00),
@@ -315,8 +315,8 @@ impl Ppu {
 
     fn render_object_line(&mut self) {
         let ly = self.ly as i16;
-        for (oam_index, x_offset) in self.oam_buffer.iter() {
-            let oam_entry = self.oam[*oam_index];
+        for (oam_index, x_offset) in self.oam_buffer.clone() {
+            let oam_entry = self.oam[oam_index];
             let y_offset = oam_entry.y_position() as i16 - 16;
 
             let mut tile_index = oam_entry.tile_index();
@@ -364,7 +364,7 @@ impl Ppu {
         }
     }
 
-    fn get_tile_bytes(&self, address: u16) -> (u8, u8) {
+    fn get_tile_bytes(&mut self, address: u16) -> (u8, u8) {
         let byte1 = self.read_8(address);
         let byte2 = self.read_8(address + 1);
         (byte1, byte2)

@@ -1,15 +1,22 @@
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
-    apu::Apu,
+    apu::{Apu, CYCLES_PER_SAMPLE},
     boot_rom,
     cartridge::Cartridge,
     io::{joypad::JoyPad, serial_transfer::SerialTransfer, timer::Timer},
-    ppu::Ppu,
+    ppu::{Ppu, HBLANK_CYCLES, OAM_CYCLES},
+    scheduler::{
+        self,
+        event::{ApuEvent, EventType, PpuEvent},
+        Scheduler,
+    },
 };
 
 pub trait MemoryAccess {
-    fn read_8(&self, address: u16) -> u8;
+    fn read_8(&mut self, address: u16) -> u8;
 
-    fn read_16(&self, address: u16) -> u16 {
+    fn read_16(&mut self, address: u16) -> u16 {
         let lo = self.read_8(address) as u16;
         let hi = self.read_8(address + 1) as u16;
         hi << 8 | lo
@@ -40,11 +47,12 @@ pub struct Bus {
     pub timer: Timer,
     pub ppu: Ppu,
     pub apu: Apu,
+    pub scheduler: Rc<RefCell<Scheduler>>,
     boot_rom: bool,
 }
 
 impl MemoryAccess for Bus {
-    fn read_8(&self, address: u16) -> u8 {
+    fn read_8(&mut self, address: u16) -> u8 {
         match address {
             0x0000..=0x7FFF => {
                 // figure out how to make this toggleable
@@ -110,7 +118,14 @@ impl MemoryAccess for Bus {
 }
 
 impl Bus {
-    pub fn new(cartridge: Cartridge) -> Self {
+    pub fn new(cartridge: Cartridge, scheduler: Rc<RefCell<Scheduler>>) -> Self {
+        scheduler
+            .borrow_mut()
+            .schedule((EventType::Gpu(PpuEvent::HBlank), HBLANK_CYCLES as usize));
+        scheduler
+            .borrow_mut()
+            .schedule((EventType::Apu(ApuEvent::Sample), CYCLES_PER_SAMPLE as usize));
+
         let mut bus = Bus {
             cartridge,
             wram: [0; WRAM_SIZE],
@@ -120,9 +135,10 @@ impl Bus {
             interrupt_flag: 0,
             joy_pad: JoyPad::new(),
             serial_transfer: SerialTransfer::new(),
-            timer: Timer::new(),
+            timer: Timer::new(scheduler.clone()),
             ppu: Ppu::new(),
             apu: Apu::new(),
+            scheduler,
             boot_rom: true,
         };
 
@@ -170,7 +186,6 @@ impl Bus {
         self.interrupt_flag |= self.serial_transfer.interrupt;
         self.serial_transfer.interrupt = 0;
 
-        self.timer.cycle(ticks);
         self.interrupt_flag |= self.timer.interrupt;
         self.timer.interrupt = 0;
 

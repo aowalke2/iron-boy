@@ -83,7 +83,7 @@ impl Cartridge {
 
         let ram_file = rom_file.with_extension("sav");
         if mbc.has_battery() {
-            match File::create(&ram_file) {
+            match File::open(&ram_file) {
                 Ok(mut file) => {
                     let mut data = Vec::new();
                     match file.read_to_end(&mut data) {

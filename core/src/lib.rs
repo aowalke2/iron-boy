@@ -3,8 +3,10 @@ mod boot_rom;
 pub mod bus;
 pub mod cartridge;
 pub mod cpu;
+pub mod gb;
 mod io;
 mod ppu;
+pub mod scheduler;
 
 pub use crate::io::joypad::JoypadButton;
 pub use crate::ppu::{FPS, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};

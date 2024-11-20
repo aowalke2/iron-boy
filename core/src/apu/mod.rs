@@ -21,7 +21,7 @@ mod wave;
 pub const SAMPLING_RATE: u16 = 1024;
 pub const SAMPLING_FREQUENCY: u16 = 44100;
 pub const APU_CLOCK_SPEED: u16 = 512;
-const CPU_CYCLES_PER_SAMPLE: f32 = CPU_CLOCK_SPEED as f32 / SAMPLING_FREQUENCY as f32;
+pub const CYCLES_PER_SAMPLE: f32 = CPU_CLOCK_SPEED as f32 / SAMPLING_FREQUENCY as f32;
 pub const AUDIO_BUFFER_THRESHOLD: usize = SAMPLING_RATE as usize * 4;
 
 pub struct Apu {
@@ -39,7 +39,7 @@ pub struct Apu {
 }
 
 impl MemoryAccess for Apu {
-    fn read_8(&self, address: u16) -> u8 {
+    fn read_8(&mut self, address: u16) -> u8 {
         match address {
             0xFF10..=0xFF14 => self.ch1.read_8(address),
             0xFF16..=0xFF19 => self.ch2.read_8(address),
@@ -107,13 +107,13 @@ impl Apu {
         self.ch4.cycle(ticks);
         self.counter += ticks as f32;
 
-        while self.counter >= CPU_CYCLES_PER_SAMPLE {
+        while self.counter >= CYCLES_PER_SAMPLE {
             let (output_left, output_right) = self
                 .mixer
                 .mix([self.ch1.output(), self.ch2.output(), self.ch3.output(), self.ch4.output()]);
             self.audio_buffer.lock().unwrap().push_back(output_left);
             self.audio_buffer.lock().unwrap().push_back(output_right);
-            self.counter -= CPU_CYCLES_PER_SAMPLE;
+            self.counter -= CYCLES_PER_SAMPLE;
         }
     }
 
