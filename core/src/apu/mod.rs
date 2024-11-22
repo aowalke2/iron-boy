@@ -5,7 +5,11 @@ use noise::NoiseChannel;
 use square::SquareChannel;
 use wave::WaveChannel;
 
-use crate::{bus::MemoryAccess, cpu::CPU_CLOCK_SPEED};
+use crate::{
+    bus::MemoryAccess,
+    cpu::CPU_CLOCK_SPEED,
+    scheduler::event::{ApuEvent, EventType, FutureEvent},
+};
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
@@ -34,7 +38,6 @@ pub struct Apu {
     pub right_volume: u8,
     pub left_volume: u8,
     enabled: bool,
-    counter: f32,
     pub audio_buffer: Arc<Mutex<VecDeque<u8>>>,
 }
 
@@ -89,9 +92,31 @@ impl Apu {
             right_volume: 0,
             left_volume: 0,
             enabled: false,
-            counter: 0.0,
             audio_buffer: Arc::new(Mutex::new(VecDeque::from(vec![0; AUDIO_BUFFER_THRESHOLD]))),
         }
+    }
+
+    pub fn handle_event(&mut self, apu_event: ApuEvent) -> Option<FutureEvent> {
+        let (event, cycles) = match apu_event {
+            ApuEvent::LengthTimer => unimplemented!(),
+            ApuEvent::Sweep => unimplemented!(),
+            ApuEvent::VolumeEnvelope => unimplemented!(),
+            ApuEvent::Channel1 => unimplemented!(),
+            ApuEvent::Channel2 => unimplemented!(),
+            ApuEvent::Channel3 => unimplemented!(),
+            ApuEvent::Channel4 => unimplemented!(),
+            ApuEvent::Sample => self.handle_sample(),
+        };
+        Some((EventType::Apu(event), cycles))
+    }
+
+    fn handle_sample(&mut self) -> (ApuEvent, usize) {
+        let (output_left, output_right) = self
+            .mixer
+            .mix([self.ch1.output(), self.ch2.output(), self.ch3.output(), self.ch4.output()]);
+        self.audio_buffer.lock().unwrap().push_back(output_left);
+        self.audio_buffer.lock().unwrap().push_back(output_right);
+        (ApuEvent::Sample, CYCLES_PER_SAMPLE as usize)
     }
 
     pub fn cycle(&mut self, ticks: u32) {
@@ -105,16 +130,6 @@ impl Apu {
         self.ch2.cycle(ticks);
         self.ch3.cycle(ticks);
         self.ch4.cycle(ticks);
-        self.counter += ticks as f32;
-
-        while self.counter >= CYCLES_PER_SAMPLE {
-            let (output_left, output_right) = self
-                .mixer
-                .mix([self.ch1.output(), self.ch2.output(), self.ch3.output(), self.ch4.output()]);
-            self.audio_buffer.lock().unwrap().push_back(output_left);
-            self.audio_buffer.lock().unwrap().push_back(output_right);
-            self.counter -= CYCLES_PER_SAMPLE;
-        }
     }
 
     fn master_control(&self) -> u8 {
@@ -152,7 +167,6 @@ impl Apu {
         self.mixer.reset();
         self.left_volume = 0;
         self.right_volume = 0;
-        self.counter = 0.0;
         self.audio_buffer.lock().unwrap().clear();
     }
 }

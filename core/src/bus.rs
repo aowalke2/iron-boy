@@ -5,10 +5,9 @@ use crate::{
     boot_rom,
     cartridge::Cartridge,
     io::{joypad::JoyPad, serial_transfer::SerialTransfer, timer::Timer},
-    ppu::{Ppu, HBLANK_CYCLES, OAM_SCAN_CYCLES},
+    ppu::Ppu,
     scheduler::{
-        self,
-        event::{ApuEvent, EventType, PpuEvent},
+        event::{ApuEvent, EventType},
         Scheduler,
     },
 };

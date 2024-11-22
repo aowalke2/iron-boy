@@ -58,7 +58,7 @@ impl GameBoy {
         let mut cycles_passed = 0.0;
         while cycles_passed <= cycles_per_frame {
             let ticks = self.cycle();
-            if self.update_ppu() {
+            if true {
                 let mut frame = self.frame.take().unwrap();
                 transform(self.ppu_buffer(), &mut frame);
                 let data = web_sys::ImageData::new_with_u8_clamped_array_and_sh(Clamped(&mut frame), 160, 144)?;
@@ -69,12 +69,6 @@ impl GameBoy {
         }
 
         Ok(())
-    }
-
-    fn update_ppu(&mut self) -> bool {
-        let result = self.cpu.bus.ppu.screen_updated;
-        self.cpu.bus.ppu.screen_updated = false;
-        result
     }
 
     fn ppu_buffer(&self) -> &[(u8, u8, u8)] {

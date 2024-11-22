@@ -1,7 +1,8 @@
-use desktop::{audio::Audio, GameBoy};
+use desktop::audio::Audio;
 use ironboy_core::{
     apu::{AUDIO_BUFFER_THRESHOLD, SAMPLING_FREQUENCY, SAMPLING_RATE},
     cpu::CPU_CLOCK_SPEED,
+    gb::GameBoy,
     JoypadButton, FPS, VIEWPORT_HEIGHT, VIEWPORT_WIDTH,
 };
 use sdl2::{
@@ -59,18 +60,13 @@ fn main() {
     let audio_device = create_audio_device(&mut game_boy, &mut audio_subsystem, &volume);
     audio_device.resume();
 
+    let mut overshoot = 0;
     'game: loop {
         let frame_start_time = std::time::Instant::now();
-        let cycles_per_frame = CPU_CLOCK_SPEED as f32 / FPS;
-        let mut cycles_passed = 0.0;
-        while cycles_passed <= cycles_per_frame {
-            let ticks = game_boy.cycle();
-            if game_boy.update_ppu() {
-                let data = game_boy.ppu_buffer().to_vec();
-                recalculate_screen(&mut canvas, &data)
-            }
-            cycles_passed += (ticks) as f32;
-        }
+
+        overshoot = game_boy.run(overshoot);
+        let data = game_boy.ppu_buffer().to_vec();
+        recalculate_screen(&mut canvas, &data);
 
         while should_sync(frame_start_time, &game_boy.cpu.bus.apu.audio_buffer) {
             std::hint::spin_loop();
