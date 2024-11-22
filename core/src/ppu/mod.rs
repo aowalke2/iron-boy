@@ -55,6 +55,7 @@ pub struct Ppu {
     pub interrupt: u8,
     //vrambank: usize,
     scheduler: Rc<RefCell<Scheduler>>,
+    next_event: PpuEvent,
 }
 
 impl MemoryAccess for Ppu {
@@ -127,21 +128,22 @@ impl Ppu {
             interrupt: 0,
             //vrambank: 0,
             scheduler,
+            next_event: PpuEvent::HBlank,
         }
     }
 
     pub fn handle_event(&mut self, ppu_event: PpuEvent) -> Option<FutureEvent> {
-        if !self.lcd_control.lcd_enabled() {
-            return None;
-        }
-
         let (event, cycles) = match ppu_event {
             PpuEvent::HBlank => self.handle_hblank(),
             PpuEvent::VBlank => self.handle_vblank(),
             PpuEvent::OamScan => self.handle_oam_scan(),
             PpuEvent::DrawingPixels => self.handle_drawing_pixels(),
         };
-        Some((EventType::Ppu(event), cycles))
+        self.next_event = event;
+        match !self.lcd_control.lcd_enabled() {
+            true => None,
+            false => Some((EventType::Ppu(event), cycles)),
+        }
     }
 
     fn handle_hblank(&mut self) -> (PpuEvent, usize) {
@@ -165,7 +167,7 @@ impl Ppu {
 
     fn handle_vblank(&mut self) -> (PpuEvent, usize) {
         self.set_ly(self.ly + 1);
-        if self.ly > MAX_LINE {
+        if self.ly >= MAX_LINE - 1 {
             self.window.reset_line_counter();
             self.set_ly(0);
             self.lcd_status.set_mode(PpuMode::OamScan);
@@ -261,15 +263,26 @@ impl Ppu {
             self.clear_screen();
             self.window.reset_line_counter();
             self.set_ly(0);
-            self.scheduler.borrow_mut().cancel_events(EventType::Ppu(PpuEvent::HBlank));
-            self.scheduler.borrow_mut().cancel_events(EventType::Ppu(PpuEvent::VBlank));
-            self.scheduler.borrow_mut().cancel_events(EventType::Ppu(PpuEvent::OamScan));
-            self.scheduler.borrow_mut().cancel_events(EventType::Ppu(PpuEvent::DrawingPixels));
-        }
-
-        if self.lcd_control.lcd_enabled() {
-            self.lcd_status.set_mode(PpuMode::HBlank);
-            self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::HBlank), 0));
+            self.scheduler.borrow_mut().cancel_events(EventType::Ppu(self.next_event));
+        } else {
+            match self.next_event {
+                PpuEvent::HBlank => {
+                    self.lcd_status.set_mode(PpuMode::HBlank);
+                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::HBlank), 0));
+                }
+                PpuEvent::VBlank => {
+                    self.lcd_status.set_mode(PpuMode::VBlank);
+                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::VBlank), 0));
+                }
+                PpuEvent::OamScan => {
+                    self.lcd_status.set_mode(PpuMode::OamScan);
+                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::OamScan), 0));
+                }
+                PpuEvent::DrawingPixels => {
+                    self.lcd_status.set_mode(PpuMode::DrawingPixels);
+                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::DrawingPixels), 0));
+                }
+            }
         }
     }
 
@@ -303,10 +316,6 @@ impl Ppu {
 
             let color = self.bg_palette.pixel_color(color_index);
             let offset = lx as usize + self.ly as usize * VIEWPORT_WIDTH;
-
-            if self.ly >= VIEWPORT_HEIGHT as u8 {
-                return;
-            }
 
             self.screen_buffer[offset] = color.into();
         }
