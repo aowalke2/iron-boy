@@ -33,7 +33,7 @@ pub enum TimerEvent {
 pub enum EventType {
     FrameComplete,
     Timer(TimerEvent),
-    Gpu(PpuEvent),
+    Ppu(PpuEvent),
     Apu(ApuEvent),
 }
 

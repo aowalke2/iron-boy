@@ -5,7 +5,7 @@ use crate::{
     boot_rom,
     cartridge::Cartridge,
     io::{joypad::JoyPad, serial_transfer::SerialTransfer, timer::Timer},
-    ppu::{Ppu, HBLANK_CYCLES, OAM_CYCLES},
+    ppu::{Ppu, HBLANK_CYCLES, OAM_SCAN_CYCLES},
     scheduler::{
         self,
         event::{ApuEvent, EventType, PpuEvent},
@@ -121,9 +121,6 @@ impl Bus {
     pub fn new(cartridge: Cartridge, scheduler: Rc<RefCell<Scheduler>>) -> Self {
         scheduler
             .borrow_mut()
-            .schedule((EventType::Gpu(PpuEvent::HBlank), HBLANK_CYCLES as usize));
-        scheduler
-            .borrow_mut()
             .schedule((EventType::Apu(ApuEvent::Sample), CYCLES_PER_SAMPLE as usize));
 
         let mut bus = Bus {
@@ -136,7 +133,7 @@ impl Bus {
             joy_pad: JoyPad::new(),
             serial_transfer: SerialTransfer::new(),
             timer: Timer::new(scheduler.clone()),
-            ppu: Ppu::new(),
+            ppu: Ppu::new(scheduler.clone()),
             apu: Apu::new(),
             scheduler,
             boot_rom: true,
@@ -189,7 +186,6 @@ impl Bus {
         self.interrupt_flag |= self.timer.interrupt;
         self.timer.interrupt = 0;
 
-        self.ppu.cycle(ticks);
         self.interrupt_flag |= self.ppu.interrupt;
         self.ppu.interrupt = 0;
 

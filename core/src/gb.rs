@@ -57,8 +57,8 @@ impl GameBoy {
         while let Some((event, timestamp)) = self.scheduler.borrow_mut().pop() {
             let future_event = match event {
                 EventType::FrameComplete => return true,
-                EventType::Timer(timer_event) => self.cpu.bus.timer.on_event(timer_event, timestamp),
-                EventType::Gpu(ppu_event) => None,
+                EventType::Timer(timer_event) => self.cpu.bus.timer.handle_event(timer_event, timestamp),
+                EventType::Ppu(ppu_event) => self.cpu.bus.ppu.handle_event(ppu_event),
                 EventType::Apu(apu_event) => None,
             };
             if let Some((event_type, time)) = future_event {

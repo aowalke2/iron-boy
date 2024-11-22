@@ -1,5 +1,5 @@
 use event::{Event, EventType, FutureEvent};
-use std::{cell::RefCell, collections::BinaryHeap, rc::Rc};
+use std::collections::BinaryHeap;
 
 pub mod event;
 

@@ -37,7 +37,6 @@ impl MemoryAccess for Timer {
     }
 
     fn write_8(&mut self, address: u16, value: u8) {
-        // Changes to some of these registers affect the scheduler
         match address {
             0xFF04 => self.set_div(),
             0xFF05 => self.set_tima(value),
@@ -63,7 +62,7 @@ impl Timer {
         }
     }
 
-    pub fn on_event(&mut self, timer_event: TimerEvent, timestamp: usize) -> Option<FutureEvent> {
+    pub fn handle_event(&mut self, timer_event: TimerEvent, timestamp: usize) -> Option<FutureEvent> {
         match timer_event {
             TimerEvent::DivOverflow => {
                 self.div = 0;

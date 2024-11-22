@@ -37,8 +37,11 @@ impl LcdStatus {
         self.mode
     }
 
-    pub fn set_mode(&mut self, mode: PpuMode) -> bool {
+    pub fn set_mode(&mut self, mode: PpuMode) {
         self.mode = mode;
+    }
+
+    pub fn set_stat_interrupt(&mut self) -> bool {
         match self.mode {
             PpuMode::HBlank => self.mode0_interrupt,
             PpuMode::VBlank => self.mode1_interrupt,
