@@ -268,19 +268,27 @@ impl Ppu {
             match self.next_event {
                 PpuEvent::HBlank => {
                     self.lcd_status.set_mode(PpuMode::HBlank);
-                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::HBlank), 0));
+                    self.scheduler
+                        .borrow_mut()
+                        .schedule((EventType::Ppu(PpuEvent::HBlank), HBLANK_CYCLES as usize));
                 }
                 PpuEvent::VBlank => {
                     self.lcd_status.set_mode(PpuMode::VBlank);
-                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::VBlank), 0));
+                    self.scheduler
+                        .borrow_mut()
+                        .schedule((EventType::Ppu(PpuEvent::VBlank), VBLANK_CYCLES as usize));
                 }
                 PpuEvent::OamScan => {
                     self.lcd_status.set_mode(PpuMode::OamScan);
-                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::OamScan), 0));
+                    self.scheduler
+                        .borrow_mut()
+                        .schedule((EventType::Ppu(PpuEvent::OamScan), OAM_SCAN_CYCLES as usize));
                 }
                 PpuEvent::DrawingPixels => {
                     self.lcd_status.set_mode(PpuMode::DrawingPixels);
-                    self.scheduler.borrow_mut().schedule((EventType::Ppu(PpuEvent::DrawingPixels), 0));
+                    self.scheduler
+                        .borrow_mut()
+                        .schedule((EventType::Ppu(PpuEvent::DrawingPixels), DRAWING_PIXELS_CYCLES as usize));
                 }
             }
         }
