@@ -1,16 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::{
-    apu::{Apu, CYCLES_PER_SAMPLE},
+    apu::Apu,
     boot_rom,
     cartridge::Cartridge,
     io::{joypad::JoyPad, serial_transfer::SerialTransfer, timer::Timer},
-    ppu::{Ppu, HBLANK_CYCLES, OAM_SCAN_CYCLES},
-    scheduler::{
-        self,
-        event::{ApuEvent, EventType, PpuEvent},
-        Scheduler,
-    },
+    ppu::Ppu,
+    scheduler::Scheduler,
 };
 
 pub trait MemoryAccess {
@@ -118,11 +114,7 @@ impl MemoryAccess for Bus {
 }
 
 impl Bus {
-    pub fn new(cartridge: Cartridge, scheduler: Rc<RefCell<Scheduler>>) -> Self {
-        scheduler
-            .borrow_mut()
-            .schedule((EventType::Apu(ApuEvent::Sample), CYCLES_PER_SAMPLE as usize));
-
+    pub fn new(cartridge: Cartridge, scheduler: Rc<RefCell<Scheduler>>, sampling_frequency: f32) -> Self {
         let mut bus = Bus {
             cartridge,
             wram: [0; WRAM_SIZE],
@@ -134,7 +126,7 @@ impl Bus {
             serial_transfer: SerialTransfer::new(),
             timer: Timer::new(scheduler.clone()),
             ppu: Ppu::new(scheduler.clone()),
-            apu: Apu::new(),
+            apu: Apu::new(scheduler.clone(), sampling_frequency),
             scheduler,
             boot_rom: true,
         };

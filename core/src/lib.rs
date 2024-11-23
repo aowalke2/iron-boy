@@ -1,4 +1,4 @@
-pub mod apu;
+mod apu;
 mod boot_rom;
 pub mod bus;
 pub mod cartridge;
@@ -8,6 +8,7 @@ mod io;
 mod ppu;
 pub mod scheduler;
 
+pub use crate::apu::{audio, SAMPLING_RATE};
 pub use crate::io::joypad::JoypadButton;
 pub use crate::ppu::{FPS, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 

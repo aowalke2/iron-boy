@@ -1,33 +1,18 @@
-use desktop::{audio::Audio, GameBoy};
-use ironboy_core::{
-    apu::{AUDIO_BUFFER_THRESHOLD, SAMPLING_FREQUENCY, SAMPLING_RATE},
-    cpu::CPU_CLOCK_SPEED,
-    JoypadButton, FPS, VIEWPORT_HEIGHT, VIEWPORT_WIDTH,
-};
-use sdl2::{
-    audio::{AudioDevice, AudioSpecDesired},
-    event::Event,
-    keyboard::Keycode,
-    pixels::Color,
-    rect::Rect,
-    render::Canvas,
-    video::Window,
-    AudioSubsystem,
-};
+use desktop::audio::{self};
+use ironboy_core::{gb::GameBoy, JoypadButton, FPS, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
+use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect, render::Canvas, video::Window};
 use std::{
-    collections::VecDeque,
     env,
     fs::File,
     io::Read,
-    sync::{Arc, Mutex},
+    time::{self, Instant},
 };
 
 const SCALE: u32 = 4;
 const WINDOW_WIDTH: u32 = (VIEWPORT_WIDTH as u32) * SCALE;
 const WINDOW_HEIGHT: u32 = (VIEWPORT_HEIGHT as u32) * SCALE;
-const FRAME_DURATION_MS: f32 = 1_000.0 / FPS;
-const FRAME_DURATION_MICROS: f32 = FRAME_DURATION_MS * 1000.0;
-const FRAME_DURATION: std::time::Duration = std::time::Duration::from_micros(FRAME_DURATION_MICROS as u64);
+const FRAME_DURATION_NS: f32 = 1_000_000_000.0 / FPS;
+const FRAME_DURATION: std::time::Duration = std::time::Duration::from_nanos(FRAME_DURATION_NS as u64);
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -47,33 +32,27 @@ fn main() {
         .unwrap();
 
     let mut canvas = window.into_canvas().present_vsync().accelerated().build().unwrap();
-    let mut audio_subsystem = sdl_context.audio().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
+    let (audio_interface, mut _audio_device) = audio::create_audio_device(&sdl_context).unwrap();
 
     let mut rom = File::open(&args[1]).expect("Unable to open file");
     let mut buffer = Vec::new();
     rom.read_to_end(&mut buffer).expect("Issue while reading file");
-    let mut game_boy = GameBoy::new_dmg(&args[1], buffer, false);
+    let mut game_boy = GameBoy::new(&args[1], buffer, audio_interface, false);
 
-    let volume = game_boy.volume;
-    let audio_device = create_audio_device(&mut game_boy, &mut audio_subsystem, &volume);
-    audio_device.resume();
-
+    let mut overshoot = 0;
     'game: loop {
         let frame_start_time = std::time::Instant::now();
-        let cycles_per_frame = CPU_CLOCK_SPEED as f32 / FPS;
-        let mut cycles_passed = 0.0;
-        while cycles_passed <= cycles_per_frame {
-            let ticks = game_boy.cycle();
-            if game_boy.update_ppu() {
-                let data = game_boy.ppu_buffer().to_vec();
-                recalculate_screen(&mut canvas, &data)
-            }
-            cycles_passed += (ticks) as f32;
-        }
 
-        while should_sync(frame_start_time, &game_boy.cpu.bus.apu.audio_buffer) {
-            std::hint::spin_loop();
+        overshoot = game_boy.run(overshoot);
+        let data = game_boy.ppu_buffer().to_vec();
+        recalculate_screen(&mut canvas, &data);
+
+        let time_elapsed = frame_start_time.elapsed();
+        let delay = FRAME_DURATION.checked_sub(time_elapsed);
+        match delay {
+            None => {}
+            Some(delay) => spin_sleep::sleep(delay),
         }
 
         for event in event_pump.poll_iter() {
@@ -92,8 +71,6 @@ fn main() {
                     Some(Keycode::Left) => game_boy.button_down(JoypadButton::Left),
                     Some(Keycode::Down) => game_boy.button_down(JoypadButton::Down),
                     Some(Keycode::Right) => game_boy.button_down(JoypadButton::Right),
-                    Some(Keycode::Num1) => game_boy.decrease_volume(),
-                    Some(Keycode::Num2) => game_boy.increase_volume(),
                     _ => {}
                 },
                 Event::KeyUp { keycode, .. } => match keycode {
@@ -111,10 +88,6 @@ fn main() {
             };
         }
     }
-}
-
-fn should_sync(frame_start_time: std::time::Instant, audio_buffer: &Arc<Mutex<VecDeque<u8>>>) -> bool {
-    frame_start_time.elapsed().as_micros() < FRAME_DURATION.as_micros() && audio_buffer.lock().unwrap().len() > AUDIO_BUFFER_THRESHOLD
 }
 
 fn recalculate_screen(canvas: &mut Canvas<Window>, data: &[(u8, u8, u8)]) {
@@ -137,18 +110,4 @@ fn recalculate_screen(canvas: &mut Canvas<Window>, data: &[(u8, u8, u8)]) {
     }
 
     canvas.present();
-}
-
-fn create_audio_device<'a, 'b: 'a>(game_boy: &'a mut GameBoy, audio_subsystem: &'a mut AudioSubsystem, volume: &'b u8) -> AudioDevice<Audio<'a>> {
-    let audio_spec_desired = AudioSpecDesired {
-        freq: Some(SAMPLING_FREQUENCY as i32),
-        samples: Some(SAMPLING_RATE),
-        channels: Some(2),
-    };
-
-    let left_volume = &game_boy.cpu.bus.apu.left_volume;
-    let right_volume = &game_boy.cpu.bus.apu.right_volume;
-    let audio = Audio::new(&mut game_boy.cpu.bus.apu.audio_buffer, left_volume, right_volume, volume);
-
-    audio_subsystem.open_playback(None, &audio_spec_desired, |_spec| audio).unwrap()
 }

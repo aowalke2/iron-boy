@@ -6,17 +6,13 @@ use std::{
 };
 
 use ironboy_core::{
-    apu::AUDIO_BUFFER_THRESHOLD,
     bus::Bus,
     cartridge::Cartridge,
     cpu::{registers::Registers, Cpu, CPU_CLOCK_SPEED},
     scheduler::Scheduler,
     GameBoyMode, JoypadButton, FPS,
 };
-use wasm_bindgen::{
-    prelude::{wasm_bindgen, Closure},
-    Clamped, JsCast, JsValue,
-};
+use wasm_bindgen::{prelude::wasm_bindgen, Clamped, JsValue};
 use web_sys::CanvasRenderingContext2d;
 
 mod utils;
@@ -37,16 +33,17 @@ pub struct GameBoy {
 impl GameBoy {
     #[wasm_bindgen(constructor)]
     pub fn new_dmg(rom_name: &str, buffer: Vec<u8>, skip_boot: bool) -> GameBoy {
-        utils::set_panic_hook();
-        let cartridge = Cartridge::load(rom_name.into(), buffer).unwrap();
-        let game_title = cartridge.title().to_string();
-        let scheduler = Rc::new(RefCell::new(Scheduler::new()));
-        GameBoy {
-            cpu: Cpu::new(Bus::new(cartridge, scheduler), Registers::new(GameBoyMode::Monochrome, skip_boot)),
-            game_title,
-            frame: Some(vec![0; 160 * 144 * 4].into_boxed_slice()),
-            volume: 50,
-        }
+        todo!()
+        // utils::set_panic_hook();
+        // let cartridge = Cartridge::load(rom_name.into(), buffer).unwrap();
+        // let game_title = cartridge.title().to_string();
+        // let scheduler = Rc::new(RefCell::new(Scheduler::new()));
+        // GameBoy {
+        //     cpu: Cpu::new(Bus::new(cartridge, scheduler), Registers::new(GameBoyMode::Monochrome, skip_boot)),
+        //     game_title,
+        //     frame: Some(vec![0; 160 * 144 * 4].into_boxed_slice()),
+        //     volume: 50,
+        // }
     }
 
     fn cycle(&mut self) -> u32 {
@@ -58,7 +55,7 @@ impl GameBoy {
         let mut cycles_passed = 0.0;
         while cycles_passed <= cycles_per_frame {
             let ticks = self.cycle();
-            if self.update_ppu() {
+            if true {
                 let mut frame = self.frame.take().unwrap();
                 transform(self.ppu_buffer(), &mut frame);
                 let data = web_sys::ImageData::new_with_u8_clamped_array_and_sh(Clamped(&mut frame), 160, 144)?;
@@ -71,22 +68,8 @@ impl GameBoy {
         Ok(())
     }
 
-    fn update_ppu(&mut self) -> bool {
-        let result = self.cpu.bus.ppu.screen_updated;
-        self.cpu.bus.ppu.screen_updated = false;
-        result
-    }
-
     fn ppu_buffer(&self) -> &[(u8, u8, u8)] {
         &self.cpu.bus.ppu.screen_buffer
-    }
-
-    fn audio_buffer(&self) -> &Arc<Mutex<VecDeque<u8>>> {
-        &self.cpu.bus.apu.audio_buffer
-    }
-
-    fn audio_buffer_mut(&mut self) -> &mut Arc<Mutex<VecDeque<u8>>> {
-        &mut self.cpu.bus.apu.audio_buffer
     }
 
     pub fn left_volume(&self) -> u8 {
@@ -154,8 +137,4 @@ fn transform(input_buffer: &[(u8, u8, u8)], output_buffer: &mut [u8]) {
         output_buffer[4 * i + 2] = blue;
         output_buffer[4 * i + 3] = 255
     }
-}
-
-fn should_sync(frame_start_time: web_time::Instant, audio_buffer: &Arc<Mutex<VecDeque<u8>>>) -> bool {
-    frame_start_time.elapsed().as_micros() < FRAME_DURATION.as_micros() && audio_buffer.lock().unwrap().len() > AUDIO_BUFFER_THRESHOLD
 }
